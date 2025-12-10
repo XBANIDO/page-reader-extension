@@ -47,3 +47,4 @@ export async function saveFormatTemplate(template: FormatTemplate): Promise<void
   await chrome.storage.local.set({ [KEYS.FORMAT_TEMPLATE]: template });
 }
 
+

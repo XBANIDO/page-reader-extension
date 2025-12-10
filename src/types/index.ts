@@ -28,6 +28,101 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
   reasoningEffort: 'medium',
 };
 
+// Video Generation Types
+export type VideoModel = 'Veo-3.1' | 'Sora-2' | 'Kling-2.0' | 'Runway-Gen3';
+
+export interface VideoModelConfig {
+  name: VideoModel;
+  displayName: string;
+  maxDuration: number;
+  minDuration: number;
+  durationStep: number;
+  aspectRatios: string[];
+  defaultAspectRatio: string;
+  supportsImageReference: boolean;
+  supportsSoundGeneration: boolean;
+  description: string;
+}
+
+export const VIDEO_MODELS: VideoModelConfig[] = [
+  {
+    name: 'Veo-3.1',
+    displayName: 'Google Veo 3.1',
+    maxDuration: 8,
+    minDuration: 4,
+    durationStep: 1,
+    aspectRatios: ['9:16', '16:9', '1:1'],
+    defaultAspectRatio: '9:16',
+    supportsImageReference: true,
+    supportsSoundGeneration: true,
+    description: 'Google\'s latest video model with native audio generation',
+  },
+  {
+    name: 'Sora-2',
+    displayName: 'OpenAI Sora 2',
+    maxDuration: 12,
+    minDuration: 4,
+    durationStep: 2,
+    aspectRatios: ['9:16', '16:9', '1:1', '4:3'],
+    defaultAspectRatio: '9:16',
+    supportsImageReference: true,
+    supportsSoundGeneration: false,
+    description: 'OpenAI\'s advanced video generation model',
+  },
+  {
+    name: 'Kling-2.0',
+    displayName: 'Kuaishou Kling 2.0',
+    maxDuration: 10,
+    minDuration: 5,
+    durationStep: 1,
+    aspectRatios: ['9:16', '16:9', '1:1'],
+    defaultAspectRatio: '9:16',
+    supportsImageReference: true,
+    supportsSoundGeneration: true,
+    description: 'Kuaishou\'s powerful video model with audio',
+  },
+  {
+    name: 'Runway-Gen3',
+    displayName: 'Runway Gen-3 Alpha',
+    maxDuration: 10,
+    minDuration: 4,
+    durationStep: 2,
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    defaultAspectRatio: '16:9',
+    supportsImageReference: true,
+    supportsSoundGeneration: false,
+    description: 'Runway\'s Gen-3 for cinematic video',
+  },
+];
+
+export interface VideoConfig {
+  model: VideoModel;
+  duration: number;
+  aspectRatio: string;
+  useImageReference: boolean;
+  referenceImageUrl: string;
+  enableSound: boolean;
+  brandName: string;
+  brandUrl: string;
+  targetLanguage: 'zh-CN' | 'en' | 'ja' | 'ko';
+  videoStyle: 'product-demo' | 'lifestyle' | 'cinematic' | 'minimal';
+  systemPrompt: string;
+}
+
+export const DEFAULT_VIDEO_CONFIG: VideoConfig = {
+  model: 'Veo-3.1',
+  duration: 6,
+  aspectRatio: '9:16',
+  useImageReference: false,
+  referenceImageUrl: '',
+  enableSound: true,
+  brandName: 'XOOBAY',
+  brandUrl: 'https://www.xoobay.com/',
+  targetLanguage: 'zh-CN',
+  videoStyle: 'product-demo',
+  systemPrompt: '',
+};
+
 // Available Models - Latest 2025 Models from Leaderboard
 // Reference: https://artificialanalysis.ai/leaderboards/models
 export const AVAILABLE_MODELS = [

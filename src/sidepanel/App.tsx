@@ -2,11 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { usePageContent } from '@/hooks/usePageContent';
 import { useSettings } from '@/hooks/useSettings';
 import { useAI } from '@/hooks/useAI';
-import { PageContent, AVAILABLE_MODELS, ImageInfo, AIConfig, DEFAULT_AI_CONFIG } from '@/types';
-import { buildSystemPrompt, OUTPUT_LANGUAGES, OUTPUT_FORMATS, REASONING_LEVELS } from '@/utils/templates';
+import { PageContent, AVAILABLE_MODELS, ImageInfo, AIConfig, DEFAULT_AI_CONFIG, VideoConfig, DEFAULT_VIDEO_CONFIG, VIDEO_MODELS, VideoModel } from '@/types';
+import { buildSystemPrompt, OUTPUT_LANGUAGES, OUTPUT_FORMATS, REASONING_LEVELS, buildVideoSystemPrompt, VIDEO_OUTPUT_LANGUAGES, VIDEO_STYLES } from '@/utils/templates';
 
 type Step = 'read' | 'edit' | 'config' | 'result';
 type ResultView = 'rendered' | 'raw';
+type ConfigMode = 'text' | 'video';
 
 export const App: React.FC = () => {
   const { getPageContent, loading: pageLoading, error: pageError } = usePageContent();
@@ -21,14 +22,20 @@ export const App: React.FC = () => {
   const [resultView, setResultView] = useState<ResultView>('rendered');
   const [editTab, setEditTab] = useState<'text' | 'images'>('text');
   
-  // AI Config State
+  // Config mode: text generation vs video generation
+  const [configMode, setConfigMode] = useState<ConfigMode>('text');
+  
+  // AI Config State (for text generation)
   const [aiConfig, setAiConfig] = useState<AIConfig>({
     ...DEFAULT_AI_CONFIG,
     systemPrompt: buildSystemPrompt('auto', 'markdown', 'medium', false),
   });
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  
+  // Video Config State
+  const [videoConfig, setVideoConfig] = useState<VideoConfig>(DEFAULT_VIDEO_CONFIG);
 
-  // Build final system prompt when config changes
+  // Build final system prompt when config changes (for text mode)
   const finalSystemPrompt = useMemo(() => {
     return buildSystemPrompt(
       aiConfig.outputLanguage,
@@ -42,6 +49,48 @@ export const App: React.FC = () => {
   useEffect(() => {
     setAiConfig(c => ({ ...c, systemPrompt: finalSystemPrompt }));
   }, [finalSystemPrompt]);
+  
+  // Get current video model config
+  const currentVideoModel = useMemo(() => {
+    return VIDEO_MODELS.find(m => m.name === videoConfig.model) || VIDEO_MODELS[0];
+  }, [videoConfig.model]);
+  
+  // Build video system prompt when video config changes
+  const finalVideoSystemPrompt = useMemo(() => {
+    return buildVideoSystemPrompt({
+      modelName: currentVideoModel.displayName,
+      minDuration: currentVideoModel.minDuration,
+      maxDuration: currentVideoModel.maxDuration,
+      aspectRatio: videoConfig.aspectRatio,
+      brandName: videoConfig.brandName,
+      brandUrl: videoConfig.brandUrl,
+      targetLanguage: videoConfig.targetLanguage,
+      videoStyle: videoConfig.videoStyle,
+      enableSound: videoConfig.enableSound && currentVideoModel.supportsSoundGeneration,
+      useImageReference: videoConfig.useImageReference && currentVideoModel.supportsImageReference,
+      referenceImageUrl: videoConfig.referenceImageUrl,
+    });
+  }, [videoConfig, currentVideoModel]);
+  
+  // Update videoConfig.systemPrompt when finalVideoSystemPrompt changes
+  useEffect(() => {
+    setVideoConfig(c => ({ ...c, systemPrompt: finalVideoSystemPrompt }));
+  }, [finalVideoSystemPrompt]);
+  
+  // Update video config when model changes (reset to model defaults)
+  const handleVideoModelChange = (modelName: VideoModel) => {
+    const model = VIDEO_MODELS.find(m => m.name === modelName);
+    if (model) {
+      setVideoConfig(c => ({
+        ...c,
+        model: modelName,
+        duration: Math.min(Math.max(c.duration, model.minDuration), model.maxDuration),
+        aspectRatio: model.aspectRatios.includes(c.aspectRatio) ? c.aspectRatio : model.defaultAspectRatio,
+        enableSound: model.supportsSoundGeneration ? c.enableSound : false,
+        useImageReference: model.supportsImageReference ? c.useImageReference : false,
+      }));
+    }
+  };
 
   useEffect(() => {
     if (!settingsLoading && !settings.apiKey) {
@@ -85,14 +134,18 @@ export const App: React.FC = () => {
   };
 
   const handleResetConfig = () => {
-    setAiConfig({
-      ...DEFAULT_AI_CONFIG,
-      outputLanguage: 'auto',
-      outputFormat: 'markdown',
-      reasoningEffort: 'medium',
-      enableWebSearch: false,
-      systemPrompt: buildSystemPrompt('auto', 'markdown', 'medium', false),
-    });
+    if (configMode === 'text') {
+      setAiConfig({
+        ...DEFAULT_AI_CONFIG,
+        outputLanguage: 'auto',
+        outputFormat: 'markdown',
+        reasoningEffort: 'medium',
+        enableWebSearch: false,
+        systemPrompt: buildSystemPrompt('auto', 'markdown', 'medium', false),
+      });
+    } else {
+      setVideoConfig(DEFAULT_VIDEO_CONFIG);
+    }
   };
 
   const handleSendToAI = async () => {
@@ -109,7 +162,12 @@ export const App: React.FC = () => {
       });
     }
     
-    await sendPrompt(userContent, settings, aiConfig);
+    // Use appropriate config based on mode
+    const configToUse = configMode === 'video' 
+      ? { ...aiConfig, systemPrompt: finalVideoSystemPrompt, outputFormat: 'plain' }
+      : aiConfig;
+    
+    await sendPrompt(userContent, settings, configToUse);
     setStep('result');
   };
 
@@ -735,8 +793,28 @@ export const App: React.FC = () => {
         {/* Step 3: AI Config */}
         {step === 'config' && (
           <div className="h-full flex flex-col">
+            {/* Mode Toggle */}
+            <div className="flex gap-1 mb-4 bg-dark-800 rounded-lg p-1">
+              <button
+                onClick={() => setConfigMode('text')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors
+                  ${configMode === 'text' ? 'bg-primary-500 text-white' : 'text-dark-400 hover:text-white'}`}
+              >
+                📝 Text Generation
+              </button>
+              <button
+                onClick={() => setConfigMode('video')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors
+                  ${configMode === 'video' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' : 'text-dark-400 hover:text-white'}`}
+              >
+                🎬 Video Prompt
+              </button>
+            </div>
+            
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">AI Configuration</h3>
+              <h3 className="text-sm font-semibold text-white">
+                {configMode === 'text' ? 'Text AI Configuration' : 'Video Prompt Configuration'}
+              </h3>
               <button
                 onClick={handleResetConfig}
                 className="px-2 py-1 text-xs bg-dark-800 hover:bg-dark-700 text-dark-300 rounded-lg"
@@ -745,142 +823,377 @@ export const App: React.FC = () => {
               </button>
             </div>
             
-            {/* Quick Options */}
-            <div className="space-y-4 mb-4">
-              {/* Output Language */}
-              <div>
-                <label className="block text-xs text-dark-400 mb-2">🌐 Output Language</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {OUTPUT_LANGUAGES.slice(0, 6).map(lang => (
-                    <button
-                      key={lang.code}
-                      onClick={() => setAiConfig(c => ({ ...c, outputLanguage: lang.code }))}
-                      className={`px-3 py-2 text-xs rounded-lg transition-all
-                        ${aiConfig.outputLanguage === lang.code 
-                          ? 'bg-primary-500 text-white' 
-                          : 'bg-dark-800 text-dark-300 hover:bg-dark-700'}`}
+            {/* Text Generation Config */}
+            {configMode === 'text' && (
+              <>
+                {/* Quick Options */}
+                <div className="space-y-4 mb-4">
+                  {/* Output Language */}
+                  <div>
+                    <label className="block text-xs text-dark-400 mb-2">🌐 Output Language</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {OUTPUT_LANGUAGES.slice(0, 6).map(lang => (
+                        <button
+                          key={lang.code}
+                          onClick={() => setAiConfig(c => ({ ...c, outputLanguage: lang.code }))}
+                          className={`px-3 py-2 text-xs rounded-lg transition-all
+                            ${aiConfig.outputLanguage === lang.code 
+                              ? 'bg-primary-500 text-white' 
+                              : 'bg-dark-800 text-dark-300 hover:bg-dark-700'}`}
+                        >
+                          {lang.label}
+                        </button>
+                      ))}
+                    </div>
+                    <select
+                      value={aiConfig.outputLanguage}
+                      onChange={(e) => setAiConfig(c => ({ ...c, outputLanguage: e.target.value }))}
+                      className="mt-2 w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-dark-300 text-xs"
                     >
-                      {lang.label}
-                    </button>
-                  ))}
-                </div>
-                <select
-                  value={aiConfig.outputLanguage}
-                  onChange={(e) => setAiConfig(c => ({ ...c, outputLanguage: e.target.value }))}
-                  className="mt-2 w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-dark-300 text-xs"
-                >
-                  {OUTPUT_LANGUAGES.map(lang => <option key={lang.code} value={lang.code}>{lang.label}</option>)}
-                </select>
-              </div>
+                      {OUTPUT_LANGUAGES.map(lang => <option key={lang.code} value={lang.code}>{lang.label}</option>)}
+                    </select>
+                  </div>
 
-              {/* Output Format */}
-              <div>
-                <label className="block text-xs text-dark-400 mb-2">📄 Output Format</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {OUTPUT_FORMATS.map(fmt => (
+                  {/* Output Format */}
+                  <div>
+                    <label className="block text-xs text-dark-400 mb-2">📄 Output Format</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {OUTPUT_FORMATS.map(fmt => (
+                        <button
+                          key={fmt.code}
+                          onClick={() => setAiConfig(c => ({ ...c, outputFormat: fmt.code }))}
+                          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all
+                            ${aiConfig.outputFormat === fmt.code 
+                              ? 'bg-primary-500 text-white' 
+                              : 'bg-dark-800 text-dark-300 hover:bg-dark-700'}`}
+                        >
+                          <span>{fmt.icon}</span>
+                          <span className="text-xs">{fmt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Reasoning Effort */}
+                  <div>
+                    <label className="block text-xs text-dark-400 mb-2">🧠 Reasoning Effort</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {REASONING_LEVELS.map(level => (
+                        <button
+                          key={level.value}
+                          onClick={() => setAiConfig(c => ({ ...c, reasoningEffort: level.value as AIConfig['reasoningEffort'] }))}
+                          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all
+                            ${aiConfig.reasoningEffort === level.value 
+                              ? 'bg-primary-500 text-white' 
+                              : 'bg-dark-800 text-dark-300 hover:bg-dark-700'}`}
+                        >
+                          <span className="text-sm font-medium">{level.label}</span>
+                          <span className="text-xs opacity-70">{level.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Web Search Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-dark-800 rounded-xl">
+                    <div>
+                      <p className="text-sm text-white">🔍 Enable Web Search</p>
+                      <p className="text-xs text-dark-400">Allow AI to search the web for additional context</p>
+                    </div>
                     <button
-                      key={fmt.code}
-                      onClick={() => setAiConfig(c => ({ ...c, outputFormat: fmt.code }))}
-                      className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all
-                        ${aiConfig.outputFormat === fmt.code 
-                          ? 'bg-primary-500 text-white' 
-                          : 'bg-dark-800 text-dark-300 hover:bg-dark-700'}`}
+                      onClick={() => setAiConfig(c => ({ ...c, enableWebSearch: !c.enableWebSearch }))}
+                      className={`w-12 h-6 rounded-full transition-colors relative
+                        ${aiConfig.enableWebSearch ? 'bg-primary-500' : 'bg-dark-700'}`}
                     >
-                      <span>{fmt.icon}</span>
-                      <span className="text-xs">{fmt.label}</span>
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform
+                        ${aiConfig.enableWebSearch ? 'translate-x-7' : 'translate-x-1'}`} />
                     </button>
-                  ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Reasoning Effort */}
-              <div>
-                <label className="block text-xs text-dark-400 mb-2">🧠 Reasoning Effort</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {REASONING_LEVELS.map(level => (
+                {/* System Prompt Preview */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-dark-400">📝 Generated System Prompt</label>
                     <button
-                      key={level.value}
-                      onClick={() => setAiConfig(c => ({ ...c, reasoningEffort: level.value as AIConfig['reasoningEffort'] }))}
-                      className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all
-                        ${aiConfig.reasoningEffort === level.value 
-                          ? 'bg-primary-500 text-white' 
-                          : 'bg-dark-800 text-dark-300 hover:bg-dark-700'}`}
+                      onClick={() => setShowSystemPrompt(!showSystemPrompt)}
+                      className="px-2 py-1 text-xs bg-dark-800 hover:bg-dark-700 text-dark-300 rounded-lg"
                     >
-                      <span className="text-sm font-medium">{level.label}</span>
-                      <span className="text-xs opacity-70">{level.description}</span>
+                      {showSystemPrompt ? 'Hide' : 'Preview'}
                     </button>
-                  ))}
+                  </div>
+                  
+                  {/* Config Summary Badge */}
+                  <div className="mb-2 px-3 py-1.5 bg-dark-800/50 rounded-lg border border-dark-700/50 inline-flex items-center gap-2 text-xs text-dark-300">
+                    <span className="text-dark-500">Active:</span>
+                    <span>{getConfigSummary()}</span>
+                  </div>
+                  
+                  {showSystemPrompt && (
+                    <div className="flex-1 overflow-y-auto p-3 bg-dark-800 border border-dark-700 rounded-xl text-xs text-dark-200 font-mono whitespace-pre-wrap">
+                      {finalSystemPrompt}
+                    </div>
+                  )}
+                  
+                  {!showSystemPrompt && (
+                    <div className="p-3 bg-dark-800/50 rounded-xl border border-dark-700/50">
+                      <p className="text-xs text-dark-400">
+                        System prompt generated ({finalSystemPrompt.length.toLocaleString()} characters)
+                      </p>
+                      <p className="text-xs text-dark-500 mt-1">
+                        Click "Preview" to view the full prompt with your settings integrated.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </div>
-
-              {/* Web Search Toggle */}
-              <div className="flex items-center justify-between p-3 bg-dark-800 rounded-xl">
+              </>
+            )}
+            
+            {/* Video Prompt Config */}
+            {configMode === 'video' && (
+              <div className="flex-1 overflow-y-auto space-y-4">
+                {/* Video Model Selection */}
                 <div>
-                  <p className="text-sm text-white">🔍 Enable Web Search</p>
-                  <p className="text-xs text-dark-400">Allow AI to search the web for additional context</p>
+                  <label className="block text-xs text-dark-400 mb-2">🎥 Video Model</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {VIDEO_MODELS.map(model => (
+                      <button
+                        key={model.name}
+                        onClick={() => handleVideoModelChange(model.name)}
+                        className={`flex flex-col items-start p-3 rounded-xl transition-all text-left
+                          ${videoConfig.model === model.name 
+                            ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-2 border-purple-500' 
+                            : 'bg-dark-800 border-2 border-dark-700 hover:border-dark-600'}`}
+                      >
+                        <span className="text-sm font-medium text-white">{model.displayName}</span>
+                        <span className="text-xs text-dark-400 mt-1">{model.minDuration}-{model.maxDuration}s</span>
+                        <div className="flex gap-1 mt-2">
+                          {model.supportsImageReference && <span className="text-xs px-1.5 py-0.5 bg-dark-700 rounded">🖼️</span>}
+                          {model.supportsSoundGeneration && <span className="text-xs px-1.5 py-0.5 bg-dark-700 rounded">🔊</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <button
-                  onClick={() => setAiConfig(c => ({ ...c, enableWebSearch: !c.enableWebSearch }))}
-                  className={`w-12 h-6 rounded-full transition-colors relative
-                    ${aiConfig.enableWebSearch ? 'bg-primary-500' : 'bg-dark-700'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform
-                    ${aiConfig.enableWebSearch ? 'translate-x-7' : 'translate-x-1'}`} />
-                </button>
-        </div>
-      </div>
-
-            {/* System Prompt Preview */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs text-dark-400">📝 Generated System Prompt</label>
-                <button
-                  onClick={() => setShowSystemPrompt(!showSystemPrompt)}
-                  className="px-2 py-1 text-xs bg-dark-800 hover:bg-dark-700 text-dark-300 rounded-lg"
-                >
-                  {showSystemPrompt ? 'Hide' : 'Preview'}
-                </button>
+                
+                {/* Duration Slider */}
+                <div>
+                  <label className="block text-xs text-dark-400 mb-2">⏱️ Duration: {videoConfig.duration}s</label>
+                  <input
+                    type="range"
+                    min={currentVideoModel.minDuration}
+                    max={currentVideoModel.maxDuration}
+                    step={currentVideoModel.durationStep}
+                    value={videoConfig.duration}
+                    onChange={(e) => setVideoConfig(c => ({ ...c, duration: Number(e.target.value) }))}
+                    className="w-full h-2 bg-dark-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  />
+                  <div className="flex justify-between text-xs text-dark-500 mt-1">
+                    <span>{currentVideoModel.minDuration}s</span>
+                    <span>{currentVideoModel.maxDuration}s</span>
+                  </div>
+                </div>
+                
+                {/* Aspect Ratio */}
+                <div>
+                  <label className="block text-xs text-dark-400 mb-2">📐 Aspect Ratio</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {currentVideoModel.aspectRatios.map(ratio => (
+                      <button
+                        key={ratio}
+                        onClick={() => setVideoConfig(c => ({ ...c, aspectRatio: ratio }))}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all
+                          ${videoConfig.aspectRatio === ratio 
+                            ? 'bg-purple-500 text-white' 
+                            : 'bg-dark-800 text-dark-300 hover:bg-dark-700'}`}
+                      >
+                        <div className={`border-2 ${videoConfig.aspectRatio === ratio ? 'border-white' : 'border-dark-500'} rounded
+                          ${ratio === '9:16' ? 'w-3 h-5' : ratio === '16:9' ? 'w-5 h-3' : ratio === '1:1' ? 'w-4 h-4' : 'w-4 h-3'}`} />
+                        <span className="text-xs">{ratio}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Video Style */}
+                <div>
+                  <label className="block text-xs text-dark-400 mb-2">🎨 Video Style</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {VIDEO_STYLES.map(style => (
+                      <button
+                        key={style.code}
+                        onClick={() => setVideoConfig(c => ({ ...c, videoStyle: style.code as VideoConfig['videoStyle'] }))}
+                        className={`flex flex-col items-start p-3 rounded-xl transition-all text-left
+                          ${videoConfig.videoStyle === style.code 
+                            ? 'bg-purple-500/20 border-2 border-purple-500' 
+                            : 'bg-dark-800 border-2 border-dark-700 hover:border-dark-600'}`}
+                      >
+                        <span className="text-base">{style.icon} {style.label}</span>
+                        <span className="text-xs text-dark-400 mt-1">{style.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Target Language */}
+                <div>
+                  <label className="block text-xs text-dark-400 mb-2">🌐 On-screen Text Language</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {VIDEO_OUTPUT_LANGUAGES.map(lang => (
+                      <button
+                        key={lang.code}
+                        onClick={() => setVideoConfig(c => ({ ...c, targetLanguage: lang.code as VideoConfig['targetLanguage'] }))}
+                        className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all
+                          ${videoConfig.targetLanguage === lang.code 
+                            ? 'bg-purple-500 text-white' 
+                            : 'bg-dark-800 text-dark-300 hover:bg-dark-700'}`}
+                      >
+                        <span>{lang.flag}</span>
+                        <span className="text-xs">{lang.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Brand Settings */}
+                <div className="p-3 bg-dark-800 rounded-xl space-y-3">
+                  <label className="block text-xs text-dark-400">🏷️ Brand Settings</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-dark-500 mb-1">Brand Name</label>
+                      <input
+                        type="text"
+                        value={videoConfig.brandName}
+                        onChange={(e) => setVideoConfig(c => ({ ...c, brandName: e.target.value }))}
+                        className="w-full px-3 py-2 bg-dark-900 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                        placeholder="XOOBAY"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-dark-500 mb-1">Brand URL</label>
+                      <input
+                        type="text"
+                        value={videoConfig.brandUrl}
+                        onChange={(e) => setVideoConfig(c => ({ ...c, brandUrl: e.target.value }))}
+                        className="w-full px-3 py-2 bg-dark-900 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                        placeholder="https://www.xoobay.com/"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Sound Toggle */}
+                {currentVideoModel.supportsSoundGeneration && (
+                  <div className="flex items-center justify-between p-3 bg-dark-800 rounded-xl">
+                    <div>
+                      <p className="text-sm text-white">🔊 Generate Audio</p>
+                      <p className="text-xs text-dark-400">Include ambient sounds and effects</p>
+                    </div>
+                    <button
+                      onClick={() => setVideoConfig(c => ({ ...c, enableSound: !c.enableSound }))}
+                      className={`w-12 h-6 rounded-full transition-colors relative
+                        ${videoConfig.enableSound ? 'bg-purple-500' : 'bg-dark-700'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform
+                        ${videoConfig.enableSound ? 'translate-x-7' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                )}
+                
+                {/* Image Reference Toggle */}
+                {currentVideoModel.supportsImageReference && (
+                  <div className="p-3 bg-dark-800 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-white">🖼️ Use Image Reference</p>
+                        <p className="text-xs text-dark-400">Provide a product image as reference</p>
+                      </div>
+                      <button
+                        onClick={() => setVideoConfig(c => ({ ...c, useImageReference: !c.useImageReference }))}
+                        className={`w-12 h-6 rounded-full transition-colors relative
+                          ${videoConfig.useImageReference ? 'bg-purple-500' : 'bg-dark-700'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform
+                          ${videoConfig.useImageReference ? 'translate-x-7' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                    {videoConfig.useImageReference && (
+                      <>
+                        <input
+                          type="text"
+                          value={videoConfig.referenceImageUrl}
+                          onChange={(e) => setVideoConfig(c => ({ ...c, referenceImageUrl: e.target.value }))}
+                          className="w-full px-3 py-2 bg-dark-900 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                          placeholder="https://example.com/product-image.jpg"
+                        />
+                        {selectedImages.length > 0 && (
+                          <div>
+                            <p className="text-xs text-dark-400 mb-2">Or select from page images:</p>
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                              {selectedImages.slice(0, 5).map((img, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => setVideoConfig(c => ({ ...c, referenceImageUrl: img.src }))}
+                                  className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all
+                                    ${videoConfig.referenceImageUrl === img.src ? 'border-purple-500' : 'border-dark-600 hover:border-dark-500'}`}
+                                >
+                                  <img src={img.src} alt={img.alt} className="w-full h-full object-cover" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+                
+                {/* Video System Prompt Preview */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-dark-400">📝 Video System Prompt</label>
+                    <button
+                      onClick={() => setShowSystemPrompt(!showSystemPrompt)}
+                      className="px-2 py-1 text-xs bg-dark-800 hover:bg-dark-700 text-dark-300 rounded-lg"
+                    >
+                      {showSystemPrompt ? 'Hide' : 'Preview'}
+                    </button>
+                  </div>
+                  
+                  {/* Video Config Summary */}
+                  <div className="mb-2 px-3 py-1.5 bg-purple-500/10 rounded-lg border border-purple-500/30 text-xs text-purple-300">
+                    🎬 {currentVideoModel.displayName} • {videoConfig.duration}s • {videoConfig.aspectRatio} • {videoConfig.videoStyle}
+                  </div>
+                  
+                  {showSystemPrompt && (
+                    <div className="max-h-48 overflow-y-auto p-3 bg-dark-800 border border-dark-700 rounded-xl text-xs text-dark-200 font-mono whitespace-pre-wrap">
+                      {finalVideoSystemPrompt}
+                    </div>
+                  )}
+                </div>
               </div>
-              
-              {/* Config Summary Badge */}
-              <div className="mb-2 px-3 py-1.5 bg-dark-800/50 rounded-lg border border-dark-700/50 inline-flex items-center gap-2 text-xs text-dark-300">
-                <span className="text-dark-500">Active:</span>
-                <span>{getConfigSummary()}</span>
-              </div>
-              
-              {showSystemPrompt && (
-                <div className="flex-1 overflow-y-auto p-3 bg-dark-800 border border-dark-700 rounded-xl text-xs text-dark-200 font-mono whitespace-pre-wrap">
-                  {finalSystemPrompt}
-                </div>
-              )}
-              
-              {!showSystemPrompt && (
-                <div className="p-3 bg-dark-800/50 rounded-xl border border-dark-700/50">
-                  <p className="text-xs text-dark-400">
-                    System prompt generated ({finalSystemPrompt.length.toLocaleString()} characters)
-                  </p>
-                  <p className="text-xs text-dark-500 mt-1">
-                    Click "Preview" to view the full prompt with your settings integrated.
-                  </p>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Summary */}
             <div className="my-4 p-3 bg-dark-800/50 rounded-xl border border-dark-700/50">
               <p className="text-xs text-dark-400 mb-1">Ready to process:</p>
-              <p className="text-sm text-dark-200">📄 {editedContent.length.toLocaleString()} chars • 🖼️ {selectedImages.length} images</p>
+              <p className="text-sm text-dark-200">
+                {configMode === 'text' ? '📝' : '🎬'} {editedContent.length.toLocaleString()} chars • 🖼️ {selectedImages.length} images
+              </p>
             </div>
 
             <div className="flex gap-2">
               <button onClick={() => setStep('edit')} className="flex-1 px-4 py-2.5 bg-dark-800 text-dark-300 rounded-xl border border-dark-700 hover:bg-dark-700">Back</button>
               <button
                 onClick={handleSendToAI}
-                disabled={aiLoading || !aiConfig.systemPrompt.trim()}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-primary-500 to-indigo-500 text-white font-medium rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={aiLoading || (configMode === 'text' ? !aiConfig.systemPrompt.trim() : !finalVideoSystemPrompt.trim())}
+                className={`flex-1 px-4 py-2.5 text-white font-medium rounded-xl disabled:opacity-50 flex items-center justify-center gap-2
+                  ${configMode === 'video' ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gradient-to-r from-primary-500 to-indigo-500'}`}
               >
                 {aiLoading ? (
                   <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Processing...</>
+                ) : configMode === 'video' ? (
+                  <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Generate Video Prompt</>
                 ) : (
                   <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> Generate</>
                 )}

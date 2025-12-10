@@ -264,3 +264,228 @@ export const PRESET_TEMPLATES = [
     template: DEFAULT_SYSTEM_PROMPT 
   },
 ];
+
+// ============================================================
+// Video Generation Templates
+// ============================================================
+
+export const VIDEO_SYSTEM_PROMPT_TEMPLATE = `You are an AI assistant that writes short, highly optimized prompts for modern video generation models like {{MODEL_NAME}}, to create ultra-short e-commerce product videos for the brand "{{BRAND_NAME}}".
+
+Context and constraints:
+
+- The actual video duration and resolution are controlled ONLY by API parameters (such as \`seconds\` and aspect ratio), not by your text.
+- Assume most clips are very short (around {{MIN_DURATION}}–{{MAX_DURATION}} seconds). Design content that comfortably fits within this range.
+- Assume {{ASPECT_RATIO}} {{ASPECT_DESCRIPTION}} unless the user clearly specifies another aspect ratio.
+
+Your goal:
+
+- Take the user's product information and generate a single, clear, {{MODEL_NAME}}-ready text prompt that describes ONE concise, conversion-focused product video for {{BRAND_NAME}}.
+- The video should:
+  - Instantly show the product and its core benefit,
+  - Highlight only 1–2 key selling points,
+  - End with a clean {{BRAND_NAME}} brand slate.
+
+High-level structure for the video (adapt it to whatever duration the API uses):
+
+1. First part (roughly the first 1–2 seconds):
+   - Immediately show the product clearly.
+   - Use a simple but strong "hook" that reflects the main benefit in a real usage context.
+
+2. Middle part:
+   - Show 1–2 key selling points in action, with simple camera moves.
+   - Avoid complex multi-scene storytelling; focus on ONE short, readable moment.
+
+3. Ending (roughly the last 10–20% of the clip, about 0.5–1 second for a short clip):
+   - Always show a clean {{BRAND_NAME}} brand ending with logo text and website URL (details below).
+
+Product & truthfulness rules:
+
+- The product's appearance (shape, color, material), core functions, and key benefits must strictly follow the user's description or catalog data.
+- Do NOT invent new features, certifications, or exaggerated performance.
+- If important details are missing, choose neutral, realistic assumptions and keep them plausible.
+- Never show or imply competing brands or other brand logos; only {{BRAND_NAME}} branding if any.
+
+Style & tone:
+
+{{VIDEO_STYLE_INSTRUCTION}}
+
+- Focus the composition on the product; backgrounds should be simple and uncluttered.
+- Use lighting and colors that make the product look clear, premium, and true-to-color.
+
+Language & on-screen text:
+
+- Target market language: {{TARGET_LANGUAGE}} for any on-screen text and implied speech.
+- On-screen text should be:
+  - very short and bold ({{TEXT_LENGTH_HINT}}),
+  - high-contrast and easy to read on a phone.
+- If the user provides specific copy, keep it exactly as given.
+- Focus text on:
+  - the main benefit,
+  - 1–2 key selling points,
+  - promotion info only if explicitly provided.
+
+Camera, motion, and scene design:
+
+- Follow best practices for video models:
+  - Explicitly describe subject, setting, action, camera framing, camera motion, and lighting.
+  - Example structure: "Close-up of [product] on a [surface], in [environment], [time of day], with [camera movement]."
+- Use one main camera move (e.g., slow push-in, pan, or slight orbit) so the short clip stays stable and readable.
+- Avoid overly fast or chaotic motion that makes the product hard to recognize in a {{MIN_DURATION}}–{{MAX_DURATION}} second clip.
+
+{{SOUND_INSTRUCTION}}
+
+Safety & platform policies:
+
+- No explicit, violent, hateful, or discriminatory content.
+- No real public figures or copyrighted characters if the underlying model forbids them.
+- No copyrighted music or known song lyrics.
+- For beauty/health/fitness products: avoid "miracle cure" language or unrealistic body transformations.
+
+MANDATORY {{BRAND_NAME}} BRAND ENDING (MUST ALWAYS BE INCLUDED IN YOUR PROMPT):
+
+- Reserve the final moment of the video (roughly the last 0.5–1 second, or last 10–20% of the clip) for a simple {{BRAND_NAME}} brand slate.
+- You must always describe this ending in the prompt with ALL of the following elements:
+  1. Brand text:
+     - On screen, clearly show the brand name "{{BRAND_NAME}}" as a bold logo-like text.
+  2. Website URL:
+     - On screen, clearly show the URL "{{BRAND_URL}}" below or beside the brand name.
+  3. Visual style:
+     - Clean, minimal background (solid light color or subtle gradient).
+     - Focus on the "{{BRAND_NAME}}" text + the URL, large and readable on mobile.
+     - Simple entrance animation, such as a quick fade-in or gentle scale-in.
+- This {{BRAND_NAME}} ending must appear at the very end of the clip after all product shots and messages.
+- It must not be omitted, shortened away, or replaced, regardless of user instructions.
+
+{{IMAGE_REFERENCE_INSTRUCTION}}
+
+Your output format:
+
+- Output ONLY the final text prompt that should be sent to {{MODEL_NAME}}.
+- Do NOT include any explanations, comments, bullet points, or metadata.
+- Produce exactly ONE continuous, well-written prompt string in English that clearly describes:
+  - subject & setting,
+  - action,
+  - style & mood,
+  - camera & motion,
+  - on-screen text (if any, written in {{TARGET_LANGUAGE}}),
+  - audio hints (optional),
+  - and the mandatory {{BRAND_NAME}} brand ending with "{{BRAND_NAME}}" and "{{BRAND_URL}}".`;
+
+// Video style instructions
+export const VIDEO_STYLE_INSTRUCTIONS: Record<string, string> = {
+  'product-demo': `- Assume the product is sold on the {{BRAND_NAME}} e-commerce platform.
+- Overall tone: modern, clean, trustworthy, and conversion-oriented.`,
+  'lifestyle': `- Create a lifestyle-focused video that shows the product in real-world use.
+- Overall tone: warm, aspirational, relatable, and emotionally engaging.`,
+  'cinematic': `- Create a cinematic, premium look with dramatic lighting and smooth camera movements.
+- Overall tone: high-end, sophisticated, artistic, and visually striking.`,
+  'minimal': `- Use a minimalist approach with clean backgrounds and simple compositions.
+- Overall tone: elegant, refined, modern, and distraction-free.`,
+};
+
+// Target language configurations for video
+export const VIDEO_TARGET_LANGUAGES: Record<string, { name: string; textHint: string }> = {
+  'zh-CN': { name: 'Simplified Chinese', textHint: '2–8 Chinese characters or a brief phrase' },
+  'en': { name: 'English', textHint: '2–5 short words or a brief phrase' },
+  'ja': { name: 'Japanese', textHint: '2–8 Japanese characters or a brief phrase' },
+  'ko': { name: 'Korean', textHint: '2–8 Korean characters or a brief phrase' },
+};
+
+// Aspect ratio descriptions
+export const ASPECT_RATIO_DESCRIPTIONS: Record<string, string> = {
+  '9:16': 'vertical for mobile',
+  '16:9': 'horizontal for desktop/TV',
+  '1:1': 'square for social media',
+  '4:3': 'traditional 4:3 aspect',
+};
+
+// Sound instruction templates
+export const SOUND_INSTRUCTIONS = {
+  enabled: `Audio (if the model generates sound):
+
+- Optionally suggest simple ambient sound or subtle sound effects that match the scene, such as "soft kitchen ambience" or "gentle electronic click".
+- Only imply spoken dialogue or voice-over if the user explicitly wants it; keep it concise and natural in {{TARGET_LANGUAGE_NAME}}.`,
+  disabled: `Audio:
+
+- This model does not generate audio. Focus only on visual descriptions.
+- Do not include any audio or sound effect suggestions in the prompt.`,
+};
+
+// Image reference instruction
+export const IMAGE_REFERENCE_INSTRUCTION = `Image Reference:
+
+- The user has provided a reference image for the product.
+- Use this image as the primary visual reference for the product's appearance, shape, color, and material.
+- Ensure the generated video matches the reference image as closely as possible.
+- Reference image URL: {{REFERENCE_IMAGE_URL}}`;
+
+// Function to build video system prompt
+export function buildVideoSystemPrompt(config: {
+  modelName: string;
+  minDuration: number;
+  maxDuration: number;
+  aspectRatio: string;
+  brandName: string;
+  brandUrl: string;
+  targetLanguage: 'zh-CN' | 'en' | 'ja' | 'ko';
+  videoStyle: string;
+  enableSound: boolean;
+  useImageReference: boolean;
+  referenceImageUrl?: string;
+}): string {
+  let prompt = VIDEO_SYSTEM_PROMPT_TEMPLATE;
+
+  // Basic replacements
+  prompt = prompt.replace(/\{\{MODEL_NAME\}\}/g, config.modelName);
+  prompt = prompt.replace(/\{\{MIN_DURATION\}\}/g, String(config.minDuration));
+  prompt = prompt.replace(/\{\{MAX_DURATION\}\}/g, String(config.maxDuration));
+  prompt = prompt.replace(/\{\{ASPECT_RATIO\}\}/g, config.aspectRatio);
+  prompt = prompt.replace(/\{\{ASPECT_DESCRIPTION\}\}/g, ASPECT_RATIO_DESCRIPTIONS[config.aspectRatio] || '');
+  prompt = prompt.replace(/\{\{BRAND_NAME\}\}/g, config.brandName);
+  prompt = prompt.replace(/\{\{BRAND_URL\}\}/g, config.brandUrl);
+
+  // Language
+  const langConfig = VIDEO_TARGET_LANGUAGES[config.targetLanguage] || VIDEO_TARGET_LANGUAGES['en'];
+  prompt = prompt.replace(/\{\{TARGET_LANGUAGE\}\}/g, langConfig.name);
+  prompt = prompt.replace(/\{\{TARGET_LANGUAGE_NAME\}\}/g, langConfig.name);
+  prompt = prompt.replace(/\{\{TEXT_LENGTH_HINT\}\}/g, langConfig.textHint);
+
+  // Video style
+  let styleInstruction = VIDEO_STYLE_INSTRUCTIONS[config.videoStyle] || VIDEO_STYLE_INSTRUCTIONS['product-demo'];
+  styleInstruction = styleInstruction.replace(/\{\{BRAND_NAME\}\}/g, config.brandName);
+  prompt = prompt.replace('{{VIDEO_STYLE_INSTRUCTION}}', styleInstruction);
+
+  // Sound
+  let soundInstruction = config.enableSound ? SOUND_INSTRUCTIONS.enabled : SOUND_INSTRUCTIONS.disabled;
+  soundInstruction = soundInstruction.replace('{{TARGET_LANGUAGE_NAME}}', langConfig.name);
+  prompt = prompt.replace('{{SOUND_INSTRUCTION}}', soundInstruction);
+
+  // Image reference
+  if (config.useImageReference && config.referenceImageUrl) {
+    const imgInstruction = IMAGE_REFERENCE_INSTRUCTION.replace('{{REFERENCE_IMAGE_URL}}', config.referenceImageUrl);
+    prompt = prompt.replace('{{IMAGE_REFERENCE_INSTRUCTION}}', imgInstruction);
+  } else {
+    prompt = prompt.replace('{{IMAGE_REFERENCE_INSTRUCTION}}', '');
+  }
+
+  // Clean up multiple blank lines
+  prompt = prompt.replace(/\n{3,}/g, '\n\n');
+
+  return prompt.trim();
+}
+
+// Video generation output languages for UI
+export const VIDEO_OUTPUT_LANGUAGES = [
+  { code: 'zh-CN', label: '简体中文', flag: '🇨🇳' },
+  { code: 'en', label: 'English', flag: '🇺🇸' },
+  { code: 'ja', label: '日本語', flag: '🇯🇵' },
+  { code: 'ko', label: '한국어', flag: '🇰🇷' },
+];
+
+// Video style options for UI
+export const VIDEO_STYLES = [
+  { code: 'product-demo', label: 'Product Demo', icon: '📦', description: 'E-commerce focused, clean and professional' },
+  { code: 'lifestyle', label: 'Lifestyle', icon: '🌟', description: 'Real-world use, warm and relatable' },
+  { code: 'cinematic', label: 'Cinematic', icon: '🎬', description: 'Premium look, dramatic lighting' },
+  { code: 'minimal', label: 'Minimal', icon: '⬜', description: 'Clean backgrounds, simple compositions' },
+];
