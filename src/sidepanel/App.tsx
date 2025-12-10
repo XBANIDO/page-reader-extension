@@ -12,7 +12,7 @@ type ConfigMode = 'text' | 'video';
 export const App: React.FC = () => {
   const { getPageContent, loading: pageLoading, error: pageError } = usePageContent();
   const { settings, updateSettings, loading: settingsLoading } = useSettings();
-  const { sendPrompt, loading: aiLoading, error: aiError, result: aiResult, clearResult } = useAI();
+  const { sendPrompt, sendVideoRequest, loading: aiLoading, error: aiError, result: aiResult, videoResult, clearResult } = useAI();
 
   const [step, setStep] = useState<Step>('read');
   const [pageContent, setPageContent] = useState<PageContent | null>(null);
@@ -162,12 +162,13 @@ export const App: React.FC = () => {
       });
     }
     
-    // Use appropriate config based on mode
-    const configToUse = configMode === 'video' 
-      ? { ...aiConfig, systemPrompt: finalVideoSystemPrompt, outputFormat: 'plain' }
-      : aiConfig;
-    
-    await sendPrompt(userContent, settings, configToUse);
+    if (configMode === 'video') {
+      // Use video generation
+      await sendVideoRequest(userContent, finalVideoSystemPrompt, videoConfig, settings);
+    } else {
+      // Use text generation
+      await sendPrompt(userContent, settings, aiConfig);
+    }
     setStep('result');
   };
 
@@ -1205,26 +1206,45 @@ export const App: React.FC = () => {
         {/* Step 4: Result */}
         {step === 'result' && (
           <div className="h-full flex flex-col">
+            {/* Result Type Indicator */}
+            <div className="flex items-center gap-2 mb-3">
+              {configMode === 'video' ? (
+                <span className="px-3 py-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/50 text-purple-300 text-xs font-medium rounded-full flex items-center gap-1">
+                  🎬 Video Generation Result
+                </span>
+              ) : (
+                <span className="px-3 py-1 bg-primary-500/20 border border-primary-500/50 text-primary-300 text-xs font-medium rounded-full flex items-center gap-1">
+                  📝 Text Generation Result
+                </span>
+              )}
+            </div>
+            
+            {/* Controls */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex gap-1 bg-dark-800 rounded-lg p-1">
                 <button
                   onClick={() => setResultView('rendered')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${resultView === 'rendered' ? 'bg-primary-500 text-white' : 'text-dark-400 hover:text-white'}`}
-                >📊 Rendered</button>
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${resultView === 'rendered' ? (configMode === 'video' ? 'bg-purple-500' : 'bg-primary-500') + ' text-white' : 'text-dark-400 hover:text-white'}`}
+                >{configMode === 'video' ? '🎬 Video' : '📊 Rendered'}</button>
                 <button
                   onClick={() => setResultView('raw')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${resultView === 'raw' ? 'bg-primary-500 text-white' : 'text-dark-400 hover:text-white'}`}
-                >📄 Raw</button>
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${resultView === 'raw' ? (configMode === 'video' ? 'bg-purple-500' : 'bg-primary-500') + ' text-white' : 'text-dark-400 hover:text-white'}`}
+                >📄 {configMode === 'video' ? 'Prompt' : 'Raw'}</button>
               </div>
               
-              {aiResult && (
+              {(aiResult || videoResult) && (
                 <div className="flex gap-2">
-                  <button onClick={() => handleCopy(aiResult)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-dark-800 hover:bg-dark-700 text-dark-300 rounded-lg">
+                  <button 
+                    onClick={() => handleCopy(videoResult?.prompt || videoResult?.content || aiResult || '')} 
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-dark-800 hover:bg-dark-700 text-dark-300 rounded-lg"
+                  >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg> Copy
                   </button>
-                  <button onClick={handleDownload} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Download
-                  </button>
+                  {configMode !== 'video' && (
+                    <button onClick={handleDownload} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Download
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1235,7 +1255,76 @@ export const App: React.FC = () => {
               </div>
             )}
             
-            {aiResult && (
+            {/* Video Result */}
+            {configMode === 'video' && videoResult && (
+              <div className="flex-1 overflow-y-auto space-y-4">
+                {/* Video Player */}
+                {videoResult.type === 'video' && videoResult.videoUrl && resultView === 'rendered' && (
+                  <div className="bg-black rounded-xl overflow-hidden">
+                    <video 
+                      src={videoResult.videoUrl} 
+                      controls 
+                      autoPlay
+                      className="w-full aspect-video"
+                      poster={videoResult.thumbnailUrl}
+                    >
+                      Your browser does not support video playback.
+                    </video>
+                    <div className="p-3 bg-dark-800 border-t border-dark-700">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-dark-400">Generated Video</span>
+                        <a 
+                          href={videoResult.videoUrl} 
+                          download 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Download Video
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* No Video - Show Prompt */}
+                {(videoResult.type === 'text' || resultView === 'raw') && (
+                  <div className="p-4 bg-dark-800/50 border border-dark-700/50 rounded-xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-medium text-purple-300">
+                        {videoResult.type === 'text' ? '📝 Generated Video Prompt (No video returned)' : '📝 Video Prompt Used'}
+                      </span>
+                    </div>
+                    <pre className="text-sm text-dark-200 whitespace-pre-wrap font-mono bg-dark-900 p-3 rounded-lg">
+                      {videoResult.prompt || videoResult.content}
+                    </pre>
+                    {videoResult.type === 'text' && (
+                      <div className="mt-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
+                        <p className="text-amber-400 text-xs">
+                          💡 Tip: Copy this prompt and use it directly with Veo 3.1, Sora 2, or other video generation tools.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Video Info */}
+                {videoResult.type === 'video' && resultView === 'rendered' && (
+                  <div className="p-3 bg-dark-800/50 border border-dark-700/50 rounded-xl">
+                    <h4 className="text-xs font-medium text-dark-400 mb-2">Video Details</h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div><span className="text-dark-500">Model:</span> <span className="text-dark-200">{currentVideoModel.displayName}</span></div>
+                      <div><span className="text-dark-500">Duration:</span> <span className="text-dark-200">{videoConfig.duration}s</span></div>
+                      <div><span className="text-dark-500">Aspect:</span> <span className="text-dark-200">{videoConfig.aspectRatio}</span></div>
+                      <div><span className="text-dark-500">Style:</span> <span className="text-dark-200">{videoConfig.videoStyle}</span></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Text Result */}
+            {configMode === 'text' && aiResult && (
               <div className="flex-1 overflow-y-auto p-4 bg-dark-800/50 border border-dark-700/50 rounded-xl">
                 {resultView === 'raw' ? (
                   <pre className="text-sm text-dark-200 whitespace-pre-wrap font-mono">{aiResult}</pre>
@@ -1245,7 +1334,20 @@ export const App: React.FC = () => {
               </div>
             )}
             
-            <button onClick={handleReset} className="mt-4 px-4 py-2.5 bg-gradient-to-r from-primary-500 to-indigo-500 text-white font-medium rounded-xl flex items-center justify-center gap-2">
+            {/* No Result */}
+            {!aiResult && !videoResult && !aiError && (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-dark-400">
+                  <p>No result generated</p>
+                </div>
+              </div>
+            )}
+            
+            <button 
+              onClick={handleReset} 
+              className={`mt-4 px-4 py-2.5 text-white font-medium rounded-xl flex items-center justify-center gap-2
+                ${configMode === 'video' ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gradient-to-r from-primary-500 to-indigo-500'}`}
+            >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Start New
             </button>
           </div>

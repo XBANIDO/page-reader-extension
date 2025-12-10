@@ -226,9 +226,20 @@ export type MessageType =
   | 'GET_SELECTED_TEXT'
   | 'GET_SETTINGS'
   | 'SAVE_SETTINGS'
-  | 'AI_REQUEST';
+  | 'AI_REQUEST'
+  | 'VIDEO_REQUEST';
 
 export interface ChromeMessage {
   type: MessageType;
   payload?: unknown;
+}
+
+// Video Generation Result
+export interface VideoGenerationResult {
+  type: 'video' | 'text';
+  content: string;        // For text: the text content; For video: the video URL
+  videoUrl?: string;      // Direct video URL if available
+  thumbnailUrl?: string;  // Video thumbnail if available
+  duration?: number;      // Video duration in seconds
+  prompt?: string;        // The generated prompt that was used
 }
