@@ -208,11 +208,16 @@ export async function createVideoTask(
       }];
     }
 
-    console.log('[Video API] Creating video task:', JSON.stringify(requestBody, null, 2));
-    console.log('[Video API] URL:', `${settings.videoBaseUrl}/videos`);
+    const apiUrl = `${settings.videoBaseUrl}/videos`;
+    console.log('[Video API] ========== VIDEO GENERATION REQUEST ==========');
+    console.log('[Video API] URL:', apiUrl);
+    console.log('[Video API] Model:', videoConfig.model);
+    console.log('[Video API] Prompt length:', prompt.length, 'chars');
+    console.log('[Video API] Request body:', JSON.stringify(requestBody, null, 2));
+    console.log('[Video API] API Key (first 10 chars):', settings.videoApiKey?.substring(0, 10) + '...');
 
     // Together AI video endpoint is /videos
-    const response = await fetch(`${settings.videoBaseUrl}/videos`, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -220,6 +225,8 @@ export async function createVideoTask(
       },
       body: JSON.stringify(requestBody),
     });
+    
+    console.log('[Video API] Response status:', response.status, response.statusText);
 
     const responseText = await response.text();
     console.log('[Video API] Response status:', response.status);
