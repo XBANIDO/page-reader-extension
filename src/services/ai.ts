@@ -188,12 +188,12 @@ export async function createVideoTask(
   }
 
   try {
-    // Build request body based on model type
+    // Build request body based on Together AI video API format
+    // Reference: https://docs.together.ai/reference/post_v1-video-generations
     const requestBody: Record<string, unknown> = {
       model: modelConfig.apiModelId,
       prompt: prompt,
-      duration_seconds: videoConfig.duration,
-      aspect_ratio: videoConfig.aspectRatio,
+      seconds: videoConfig.duration,  // Together AI uses 'seconds' not 'duration_seconds'
     };
 
     // Add image reference for image-to-video models
@@ -201,14 +201,11 @@ export async function createVideoTask(
       requestBody.image_url = videoConfig.referenceImageUrl;
     }
 
-    // Add audio for models that support it
-    if (videoConfig.enableSound && modelConfig.supportsSoundGeneration) {
-      requestBody.audio = true;
-    }
-
     console.log('[Video API] Creating video task:', requestBody);
+    console.log('[Video API] URL:', `${settings.videoBaseUrl}/videos`);
 
-    const response = await fetch(`${settings.videoBaseUrl}/video/generations`, {
+    // Together AI video endpoint is /videos (not /video/generations)
+    const response = await fetch(`${settings.videoBaseUrl}/videos`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -217,21 +214,39 @@ export async function createVideoTask(
       body: JSON.stringify(requestBody),
     });
 
+    const responseText = await response.text();
+    console.log('[Video API] Response status:', response.status);
+    console.log('[Video API] Response:', responseText);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[Video API] Error:', error);
+      let errorMessage = `Video API Error: ${response.status}`;
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.error?.message || errorData.message || errorData.detail || errorMessage;
+      } catch {
+        errorMessage = responseText || errorMessage;
+      }
+      console.error('[Video API] Error:', errorMessage);
       return { 
         result: { type: 'text', status: 'failed', content: prompt, prompt },
-        error: `Video API Error: ${error.error?.message || error.message || response.status}` 
+        error: errorMessage 
       };
     }
 
-    const data: TogetherVideoTask = await response.json();
+    let data: TogetherVideoTask;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      return { 
+        result: { type: 'text', status: 'failed', content: prompt, prompt },
+        error: 'Invalid response from video API' 
+      };
+    }
     console.log('[Video API] Task created:', data);
 
-    // Check if video is already completed (synchronous response)
-    if (data.status === 'completed' && (data.output?.video_url || data.output?.url || data.result?.url)) {
-      const videoUrl = data.output?.video_url || data.output?.url || data.result?.url;
+    // Check if video URL is directly returned (synchronous response)
+    const videoUrl = data.output?.video_url || data.output?.url || data.result?.url || (data as unknown as { url?: string }).url;
+    if (videoUrl) {
       return {
         result: {
           type: 'video',
@@ -246,16 +261,24 @@ export async function createVideoTask(
       };
     }
 
-    // Return pending status for polling
-    return {
-      result: {
-        type: 'pending',
-        status: data.status || 'pending',
-        content: prompt,
-        prompt: prompt,
-        taskId: data.id,
-        progress: 0,
-      }
+    // If we have an ID, it's async - return pending status for polling
+    if (data.id) {
+      return {
+        result: {
+          type: 'pending',
+          status: data.status || 'pending',
+          content: prompt,
+          prompt: prompt,
+          taskId: data.id,
+          progress: 0,
+        }
+      };
+    }
+
+    // No video URL and no task ID - unexpected response
+    return { 
+      result: { type: 'text', status: 'failed', content: prompt, prompt },
+      error: 'Unexpected response from video API. Check console for details.' 
     };
   } catch (err) {
     console.error('[Video API] Exception:', err);
@@ -279,26 +302,39 @@ export async function pollVideoTask(
   }
 
   try {
-    const response = await fetch(`${settings.videoBaseUrl}/video/generations/${taskId}`, {
+    // Together AI video polling endpoint
+    const response = await fetch(`${settings.videoBaseUrl}/videos/${taskId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${settings.videoApiKey}`,
       },
     });
 
+    const responseText = await response.text();
+    console.log('[Video API] Poll response:', response.status, responseText);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
       return { 
         result: { type: 'pending', status: 'processing', content: '', taskId },
-        error: `Poll Error: ${error.error?.message || response.status}` 
+        error: `Poll Error: ${response.status}` 
       };
     }
 
-    const data: TogetherVideoTask = await response.json();
+    let data: TogetherVideoTask;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      return { 
+        result: { type: 'pending', status: 'processing', content: '', taskId },
+        error: 'Invalid poll response' 
+      };
+    }
     console.log('[Video API] Poll result:', data);
 
-    if (data.status === 'completed') {
-      const videoUrl = data.output?.video_url || data.output?.url || data.result?.url;
+    // Check for video URL
+    const videoUrl = data.output?.video_url || data.output?.url || data.result?.url || (data as unknown as { url?: string }).url;
+    
+    if (data.status === 'completed' || videoUrl) {
       if (videoUrl) {
         return {
           result: {
