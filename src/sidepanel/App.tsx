@@ -12,7 +12,7 @@ type ConfigMode = 'text' | 'video';
 export const App: React.FC = () => {
   const { getPageContent, loading: pageLoading, error: pageError } = usePageContent();
   const { settings, updateSettings, loading: settingsLoading } = useSettings();
-  const { sendPrompt, sendVideoRequest, loading: aiLoading, error: aiError, result: aiResult, videoResult, clearResult } = useAI();
+  const { sendPrompt, sendVideoRequest, loading: aiLoading, error: aiError, result: aiResult, videoResult, videoPolling, clearResult, stopPolling } = useAI();
 
   const [step, setStep] = useState<Step>('read');
   const [pageContent, setPageContent] = useState<PageContent | null>(null);
@@ -611,36 +611,72 @@ export const App: React.FC = () => {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="p-4 border-b border-dark-800 bg-dark-900/50 space-y-4 animate-fadeIn">
-          <div>
-            <label className="block text-xs text-dark-400 mb-1.5">API Key</label>
-            <input
-              type="password"
-              value={settings.apiKey}
-              onChange={(e) => updateSettings({ apiKey: e.target.value })}
-              placeholder="Enter your API key"
-              className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-            />
+        <div className="p-4 border-b border-dark-800 bg-dark-900/50 space-y-4 animate-fadeIn max-h-96 overflow-y-auto">
+          {/* Text AI Settings */}
+          <div className="p-3 bg-dark-800/50 rounded-xl border border-dark-700/50 space-y-3">
+            <h4 className="text-xs font-semibold text-primary-400 flex items-center gap-2">
+              📝 Text AI (POE / OpenAI Compatible)
+            </h4>
+            <div>
+              <label className="block text-xs text-dark-400 mb-1.5">API Key</label>
+              <input
+                type="password"
+                value={settings.apiKey}
+                onChange={(e) => updateSettings({ apiKey: e.target.value })}
+                placeholder="Enter your API key"
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-dark-400 mb-1.5">Base URL</label>
+              <input
+                type="text"
+                value={settings.baseUrl}
+                onChange={(e) => updateSettings({ baseUrl: e.target.value })}
+                placeholder="https://api.poe.com/v1"
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-dark-400 mb-1.5">Model</label>
+              <select
+                value={settings.model}
+                onChange={(e) => updateSettings({ model: e.target.value })}
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              >
+                {AVAILABLE_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-dark-400 mb-1.5">Base URL</label>
-            <input
-              type="text"
-              value={settings.baseUrl}
-              onChange={(e) => updateSettings({ baseUrl: e.target.value })}
-              placeholder="https://api.poe.com/v1"
-              className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-dark-400 mb-1.5">Model</label>
-            <select
-              value={settings.model}
-              onChange={(e) => updateSettings({ model: e.target.value })}
-              className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-            >
-              {AVAILABLE_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
+          
+          {/* Video AI Settings */}
+          <div className="p-3 bg-purple-900/20 rounded-xl border border-purple-700/50 space-y-3">
+            <h4 className="text-xs font-semibold text-purple-400 flex items-center gap-2">
+              🎬 Video AI (Together AI)
+            </h4>
+            <div>
+              <label className="block text-xs text-dark-400 mb-1.5">Together AI API Key</label>
+              <input
+                type="password"
+                value={settings.videoApiKey || ''}
+                onChange={(e) => updateSettings({ videoApiKey: e.target.value })}
+                placeholder="Enter your Together AI API key"
+                className="w-full px-3 py-2 bg-dark-800 border border-purple-700/50 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              />
+              <p className="text-xs text-dark-500 mt-1">
+                Get your API key at <a href="https://api.together.xyz" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">api.together.xyz</a>
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs text-dark-400 mb-1.5">Video API Base URL</label>
+              <input
+                type="text"
+                value={settings.videoBaseUrl || 'https://api.together.xyz/v1'}
+                onChange={(e) => updateSettings({ videoBaseUrl: e.target.value })}
+                placeholder="https://api.together.xyz/v1"
+                className="w-full px-3 py-2 bg-dark-800 border border-purple-700/50 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -1258,6 +1294,52 @@ export const App: React.FC = () => {
             {/* Video Result */}
             {configMode === 'video' && videoResult && (
               <div className="flex-1 overflow-y-auto space-y-4">
+                {/* Video Generating Status */}
+                {(videoResult.type === 'pending' || videoPolling) && resultView === 'rendered' && (
+                  <div className="p-6 bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-xl">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="relative w-20 h-20 mb-4">
+                        <svg className="w-20 h-20 animate-spin" viewBox="0 0 100 100">
+                          <circle 
+                            cx="50" cy="50" r="40" 
+                            stroke="currentColor" 
+                            strokeWidth="8" 
+                            fill="none" 
+                            className="text-dark-700"
+                          />
+                          <circle 
+                            cx="50" cy="50" r="40" 
+                            stroke="currentColor" 
+                            strokeWidth="8" 
+                            fill="none" 
+                            strokeDasharray={`${(videoResult.progress || 0) * 2.51} 251`}
+                            strokeLinecap="round"
+                            className="text-purple-500"
+                            style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold text-purple-300">{videoResult.progress || 0}%</span>
+                        </div>
+                      </div>
+                      <h3 className="text-lg font-semibold text-white mb-2">Generating Video...</h3>
+                      <p className="text-sm text-dark-400 mb-4">
+                        {videoResult.status === 'pending' ? 'Waiting in queue...' : 'Processing your video...'}
+                      </p>
+                      <div className="text-xs text-dark-500 space-y-1">
+                        <p>Model: {currentVideoModel.displayName}</p>
+                        <p>Duration: {videoConfig.duration}s • Aspect: {videoConfig.aspectRatio}</p>
+                      </div>
+                      <button
+                        onClick={() => { stopPolling(); clearResult(); setStep('config'); }}
+                        className="mt-4 px-4 py-2 text-xs bg-dark-700 hover:bg-dark-600 text-dark-300 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Video Player */}
                 {videoResult.type === 'video' && videoResult.videoUrl && resultView === 'rendered' && (
                   <div className="bg-black rounded-xl overflow-hidden">
@@ -1272,7 +1354,7 @@ export const App: React.FC = () => {
                     </video>
                     <div className="p-3 bg-dark-800 border-t border-dark-700">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-dark-400">Generated Video</span>
+                        <span className="text-xs text-dark-400">✅ Video Generated Successfully</span>
                         <a 
                           href={videoResult.videoUrl} 
                           download 
@@ -1288,23 +1370,38 @@ export const App: React.FC = () => {
                 )}
                 
                 {/* No Video - Show Prompt */}
-                {(videoResult.type === 'text' || resultView === 'raw') && (
+                {videoResult.type === 'text' && resultView === 'rendered' && (
                   <div className="p-4 bg-dark-800/50 border border-dark-700/50 rounded-xl">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-medium text-purple-300">
-                        {videoResult.type === 'text' ? '📝 Generated Video Prompt (No video returned)' : '📝 Video Prompt Used'}
+                        📝 Generated Video Prompt
                       </span>
+                      {videoResult.status === 'failed' && (
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded">Failed</span>
+                      )}
                     </div>
-                    <pre className="text-sm text-dark-200 whitespace-pre-wrap font-mono bg-dark-900 p-3 rounded-lg">
+                    <pre className="text-sm text-dark-200 whitespace-pre-wrap font-mono bg-dark-900 p-3 rounded-lg max-h-64 overflow-y-auto">
                       {videoResult.prompt || videoResult.content}
                     </pre>
-                    {videoResult.type === 'text' && (
-                      <div className="mt-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
-                        <p className="text-amber-400 text-xs">
-                          💡 Tip: Copy this prompt and use it directly with Veo 3.1, Sora 2, or other video generation tools.
-                        </p>
-                      </div>
-                    )}
+                    <div className="mt-3 p-3 bg-amber-900/20 border border-amber-700/50 rounded-lg">
+                      <p className="text-amber-400 text-xs">
+                        💡 {!settings.videoApiKey 
+                          ? 'Video API Key not configured. Add your Together AI API key in Settings to generate videos directly.'
+                          : 'Copy this prompt and use it with video generation tools, or check your API key and try again.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Raw Prompt View */}
+                {resultView === 'raw' && videoResult.prompt && (
+                  <div className="p-4 bg-dark-800/50 border border-dark-700/50 rounded-xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-medium text-purple-300">📝 Video Prompt</span>
+                    </div>
+                    <pre className="text-sm text-dark-200 whitespace-pre-wrap font-mono bg-dark-900 p-3 rounded-lg">
+                      {videoResult.prompt}
+                    </pre>
                   </div>
                 )}
                 

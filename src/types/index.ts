@@ -3,12 +3,18 @@ export interface Settings {
   apiKey: string;
   baseUrl: string;
   model: string;
+  // Video API settings (Together AI)
+  videoApiKey: string;
+  videoBaseUrl: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   baseUrl: 'https://api.poe.com/v1',
   model: 'GPT-5.1',
+  // Together AI for video generation
+  videoApiKey: '',
+  videoBaseUrl: 'https://api.together.xyz/v1',
 };
 
 // AI Config for request
@@ -28,8 +34,8 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
   reasoningEffort: 'medium',
 };
 
-// Video Generation Types
-export type VideoModel = 'Veo-3.1' | 'Sora-2' | 'Kling-2.0' | 'Runway-Gen3';
+// Video Generation Types (Together AI Models)
+export type VideoModel = 'wan-ai/wan2.1-t2v-14b' | 'wan-ai/wan2.1-i2v-14b-720p' | 'Luma/ray2';
 
 export interface VideoModelConfig {
   name: VideoModel;
@@ -42,56 +48,48 @@ export interface VideoModelConfig {
   supportsImageReference: boolean;
   supportsSoundGeneration: boolean;
   description: string;
+  apiModelId: string; // Model ID for Together AI API
 }
 
 export const VIDEO_MODELS: VideoModelConfig[] = [
   {
-    name: 'Veo-3.1',
-    displayName: 'Google Veo 3.1',
-    maxDuration: 8,
-    minDuration: 4,
+    name: 'wan-ai/wan2.1-t2v-14b',
+    displayName: 'Wan 2.1 Text-to-Video',
+    maxDuration: 9,
+    minDuration: 3,
     durationStep: 1,
-    aspectRatios: ['9:16', '16:9', '1:1'],
-    defaultAspectRatio: '9:16',
-    supportsImageReference: true,
-    supportsSoundGeneration: true,
-    description: 'Google\'s latest video model with native audio generation',
-  },
-  {
-    name: 'Sora-2',
-    displayName: 'OpenAI Sora 2',
-    maxDuration: 12,
-    minDuration: 4,
-    durationStep: 2,
-    aspectRatios: ['9:16', '16:9', '1:1', '4:3'],
-    defaultAspectRatio: '9:16',
-    supportsImageReference: true,
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    defaultAspectRatio: '16:9',
+    supportsImageReference: false,
     supportsSoundGeneration: false,
-    description: 'OpenAI\'s advanced video generation model',
+    description: 'High-quality text-to-video generation',
+    apiModelId: 'wan-ai/wan2.1-t2v-14b',
   },
   {
-    name: 'Kling-2.0',
-    displayName: 'Kuaishou Kling 2.0',
-    maxDuration: 10,
-    minDuration: 5,
+    name: 'wan-ai/wan2.1-i2v-14b-720p',
+    displayName: 'Wan 2.1 Image-to-Video',
+    maxDuration: 9,
+    minDuration: 3,
     durationStep: 1,
-    aspectRatios: ['9:16', '16:9', '1:1'],
-    defaultAspectRatio: '9:16',
-    supportsImageReference: true,
-    supportsSoundGeneration: true,
-    description: 'Kuaishou\'s powerful video model with audio',
-  },
-  {
-    name: 'Runway-Gen3',
-    displayName: 'Runway Gen-3 Alpha',
-    maxDuration: 10,
-    minDuration: 4,
-    durationStep: 2,
     aspectRatios: ['16:9', '9:16', '1:1'],
     defaultAspectRatio: '16:9',
     supportsImageReference: true,
     supportsSoundGeneration: false,
-    description: 'Runway\'s Gen-3 for cinematic video',
+    description: 'Convert images to animated video',
+    apiModelId: 'wan-ai/wan2.1-i2v-14b-720p',
+  },
+  {
+    name: 'Luma/ray2',
+    displayName: 'Luma Ray 2',
+    maxDuration: 9,
+    minDuration: 5,
+    durationStep: 4,
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '9:21'],
+    defaultAspectRatio: '16:9',
+    supportsImageReference: true,
+    supportsSoundGeneration: true,
+    description: 'Luma\'s Ray 2 with audio generation',
+    apiModelId: 'Luma/ray2',
   },
 ];
 
@@ -110,12 +108,12 @@ export interface VideoConfig {
 }
 
 export const DEFAULT_VIDEO_CONFIG: VideoConfig = {
-  model: 'Veo-3.1',
-  duration: 6,
-  aspectRatio: '9:16',
+  model: 'wan-ai/wan2.1-t2v-14b',
+  duration: 5,
+  aspectRatio: '16:9',
   useImageReference: false,
   referenceImageUrl: '',
-  enableSound: true,
+  enableSound: false,
   brandName: 'XOOBAY',
   brandUrl: 'https://www.xoobay.com/',
   targetLanguage: 'zh-CN',
@@ -236,10 +234,14 @@ export interface ChromeMessage {
 
 // Video Generation Result
 export interface VideoGenerationResult {
-  type: 'video' | 'text';
+  type: 'video' | 'text' | 'pending';
+  status: 'pending' | 'processing' | 'completed' | 'failed';
   content: string;        // For text: the text content; For video: the video URL
   videoUrl?: string;      // Direct video URL if available
   thumbnailUrl?: string;  // Video thumbnail if available
   duration?: number;      // Video duration in seconds
   prompt?: string;        // The generated prompt that was used
+  taskId?: string;        // Together AI task ID for polling
+  progress?: number;      // Progress percentage (0-100)
+  error?: string;         // Error message if failed
 }
